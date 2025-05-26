@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import FastImage from '@d11/react-native-fast-image';
 import { fontType, colors } from '../../theme';
 import axios from 'axios';
+import { collection, deleteDoc, doc, getDoc, getFirestore, onSnapshot } from '@react-native-firebase/firestore';
 
 const formatNumber = number => {
   if (!number) return '0';
@@ -45,10 +46,25 @@ const BlogDetail = ({ route }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
 
   const fetchDetail = async () => {
+    setLoading(true);
     try {
-      const res = await axios.get(`https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`);
-      setSelectedBlog(res.data);
+      // const res = await axios.get(`https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`);
+      // setSelectedBlog(res.data);
+      const db = getFirestore();
+      const blogRef = doc(db, 'Cars', blogId);
+
+      const unsub = onSnapshot(blogRef, (documentSnapshot) => {
+        const blogData = documentSnapshot.data();
+        if (blogData) {
+          // console.log('Blog data: ', blogData);
+          setSelectedBlog(blogData);
+        } else {
+          console.log(`Blog with ID ${blogId} not found.`);
+        }
+      });
+
     } catch (e) {
+      console.log(e);
       Alert.alert('Error', 'Failed to get blog detail');
     } finally {
       setLoading(false);
@@ -57,7 +73,10 @@ const BlogDetail = ({ route }) => {
 
   const handleDeleteBlog = async () => {
     try {
-      let res = await axios.delete(`https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`);
+      // let res = await axios.delete(`https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`);
+      const db = getFirestore();
+      const blogRef = doc(db, 'Cars', blogId);
+      blogRef.delete();
       Alert.alert('Success!', 'Data deleted successfully!');
       navigation.goBack();
       // Anda mungkin ingin menambahkan notifikasi/alert sukses di sini
@@ -82,7 +101,7 @@ const BlogDetail = ({ route }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [blogId]);
 
   if (loading) {
     return (

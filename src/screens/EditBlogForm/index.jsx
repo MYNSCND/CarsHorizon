@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
-import { ArrowLeft } from 'iconsax-react-native';
+import { Add, AddSquare, ArrowLeft } from 'iconsax-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fontType, colors } from '../../theme';
 import axios from 'axios';
+import { doc, getFirestore, onSnapshot, updateDoc } from '@react-native-firebase/firestore';
+import FastImage from '@d11/react-native-fast-image';
+import ImageCropPicker from 'react-native-image-crop-picker';
 
 const EditBlogForm = ({ route }) => {
   const { blogId } = route.params;
@@ -24,6 +27,7 @@ const EditBlogForm = ({ route }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigation = useNavigation();
 
+
   const handleChange = (key, value) => {
     setBlogData(prev => ({
       ...prev,
@@ -31,38 +35,107 @@ const EditBlogForm = ({ route }) => {
     }));
   };
 
-  const handleSubmit = async () => {
-    if (!blogData.title || !blogData.content || !blogData.image) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
-    }
+  const handleUpdate = async () => {
+    setLoading(true);
+    let filename = image.substring(image.lastIndexOf('/') + 1);
+    const extension = filename.split('.').pop();
+    const name = filename.split('.').slice(0, -1).join('.');
+    filename = name + Date.now() + '.' + extension;
 
-    setIsSubmitting(true);
     try {
-      const response = await axios.put(
-        `https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`,
-        blogData
-      );
-
-      if (response.status === 200) {
-        Alert.alert('Success', 'Blog updated successfully!');
-        navigation.goBack();
+      if (image !== oldImage && oldImage) {
+        await fetch(`https://backend-file-praktikum.vercel.app/delete/${image}`, {
+          method: 'POST',
+        });
       }
+
+      let newImageUrl = image;
+
+      if (image !== oldImage) {
+        const imageFormData = new FormData();
+        imageFormData.append('file', {
+          uri: image,
+          type: `image/${extension}`, // or 'image/png'
+          name: filename,
+        });
+
+        const result = await fetch('https://backend-file-praktikum.vercel.app/upload/', {
+          method: 'POST',
+          body: imageFormData,
+        });
+        if (result.status !== 200) {
+          throw new Error("failed to upload image");
+        }
+
+        const { url } = await result.json();
+        newImageUrl = url;
+      }
+
+      const url = image !== oldImage ? newImageUrl : oldImage;
+      const db = getFirestore();
+      const blogRef = doc(db, 'Cars', blogId);
+      updateDoc(blogRef, {
+        title: blogData.title,
+        category: blogData.category,
+        image: url,
+        content: blogData.content,
+      });
+
+      setLoading(false);
+      console.log('Blog Updated!');
+      navigation.goBack();
     } catch (error) {
-      console.error('Update error:', error);
-      Alert.alert('Error', 'Failed to update blog');
-    } finally {
-      setIsSubmitting(false);
+      console.log(error);
     }
   };
+
+
+  const [image, setImage] = useState(null);
+  const [oldImage, setOldImage] = useState(null);
+
+  const handleImagePick = async () => {
+    ImageCropPicker.openPicker({
+      width: 1920,
+      height: 1080,
+      cropping: true,
+    })
+      .then(img => {
+        console.log(img);
+        setImage(img.path);
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  };
+
+
 
   const fetchBlogDetails = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `https://6833dbc5464b499636007f25.mockapi.io/api/cars/${blogId}`
-      );
-      setBlogData(response.data);
+      const db = getFirestore();
+      const blogRef = doc(db, 'Cars', blogId);
+
+      const unsub = onSnapshot(blogRef, (documentSnapshot) => {
+        const blogData = documentSnapshot.data();
+        if (blogData) {
+          console.log('Blog data: ', blogData);
+          setBlogData({
+            title: blogData.title,
+            content: blogData.content,
+            category: {
+              id: blogData.category.id,
+              name: blogData.category.name,
+            },
+          });
+          setOldImage(blogData.image);
+          setImage(blogData.image);
+          setLoading(false);
+        } else {
+          console.log(`Blog with ID ${blogId} not found.`);
+        }
+
+      });
     } catch (error) {
       console.error('Fetch error:', error);
       Alert.alert('Error', 'Failed to load blog data');
@@ -124,15 +197,58 @@ const EditBlogForm = ({ route }) => {
           />
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Image URL</Text>
-          <TextInput
-            value={blogData.image}
-            onChangeText={text => handleChange('image', text)}
-            placeholderTextColor={colors.white(0.6)}
-            style={styles.input}
-          />
-        </View>
+        {image ? (
+          <View style={{ position: 'relative' }}>
+            <FastImage
+              style={{ width: '100%', height: 127, borderRadius: 5 }}
+              source={{
+                uri: image,
+                headers: { Authorization: 'someAuthToken' },
+                priority: FastImage.priority.high,
+              }}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: -5,
+                right: -5,
+                backgroundColor: colors.blue(),
+                borderRadius: 25,
+              }}
+              onPress={() => setImage(null)}>
+              <Add
+                size={20}
+                variant="Linear"
+                color={colors.white()}
+                style={{ transform: [{ rotate: '45deg' }] }}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={handleImagePick}>
+            <View
+              style={[
+                textInput.borderDashed,
+                {
+                  gap: 10,
+                  paddingVertical: 30,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                },
+              ]}>
+              <AddSquare color={colors.white(0.6)} variant="Linear" size={42} />
+              <Text
+                style={{
+                  fontFamily: fontType['Pjs-Regular'],
+                  fontSize: 12,
+                  color: colors.white(0.6),
+                }}>
+                Upload Thumbnail
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Category</Text>
@@ -173,7 +289,7 @@ const EditBlogForm = ({ route }) => {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.submitButton}
-          onPress={handleSubmit}
+          onPress={handleUpdate}
           disabled={isSubmitting}
         >
           <Text style={styles.submitButtonText}>
@@ -271,5 +387,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+const textInput = StyleSheet.create({
+  borderDashed: {
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 10,
+    borderColor: colors.white(0.4),
+  },
+  title: {
+    fontSize: 16,
+    fontFamily: fontType['Pjs-SemiBold'],
+    color: colors.white(),
+    padding: 0,
+  },
+  content: {
+    fontSize: 12,
+    fontFamily: fontType['Pjs-Regular'],
+    color: colors.white(),
+    padding: 0,
+  },
+});
+const category = StyleSheet.create({
+  title: {
+    fontSize: 12,
+    fontFamily: fontType['Pjs-Regular'],
+    color: colors.white(0.6),
+  },
+  container: {
+    flexWrap: 'wrap',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  item: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 25,
+  },
+  name: {
+    fontSize: 10,
+    fontFamily: fontType['Pjs-Medium'],
+  }
+})
 
 export default EditBlogForm;

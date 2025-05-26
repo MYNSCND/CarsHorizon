@@ -6,6 +6,7 @@ import { SearchNormal1 } from 'iconsax-react-native';
 import { fontType, colors } from '../../theme';
 import axios from 'axios';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { collection, getFirestore, onSnapshot } from '@react-native-firebase/firestore';
 const data = [
   { id: 1, label: 'Popular' },
   { id: 2, label: 'BMW' },
@@ -44,10 +45,24 @@ const Discover = () => {
   const fetchBlogs = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('https://6833dbc5464b499636007f25.mockapi.io/api/cars');
-      console.log(res.data);
+      // const res = await axios.get('https://6833dbc5464b499636007f25.mockapi.io/api/cars');
+      // console.log(res.data);
 
-      setBlogs(res.data);
+      const db = getFirestore();
+      const blogRef = collection(db, 'Cars');
+
+      const unsub = onSnapshot(blogRef, (snapshot) => {
+        const newBlogs = [];
+        snapshot.forEach((doc) => {
+          newBlogs.push({
+            ...doc.data(),
+            id: doc.id,
+          });
+        });
+        setBlogs(newBlogs);
+        console.log(newBlogs);
+        
+      });
     } catch (e) {
       console.log(`ERROR FETCH BLOGS : ${e}`);
     } finally {

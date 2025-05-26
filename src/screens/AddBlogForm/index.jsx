@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { ArrowLeft } from 'iconsax-react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
+import { ArrowLeft, AddSquare, Add } from 'iconsax-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fontType, colors } from '../../theme';
-import axios from 'axios';
-
+import ImagePicker from 'react-native-image-crop-picker';
+import { addDoc, collection, getFirestore } from '@react-native-firebase/firestore';
 
 const AddBlogForm = () => {
   const dataCategory = [
@@ -30,29 +31,69 @@ const AddBlogForm = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
-    setLoading(true);
+  const handleImagePick = async () => {
+    ImagePicker.openPicker({
+      width: 1920,
+      height: 1080,
+      cropping: true,
+    })
+      .then(image => {
+        console.log(image);
+        setImage(image.path);
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  };
 
+
+  const handleUpload = async () => {
+    let filename = image.substring(image.lastIndexOf('/') + 1);
+    const extension = filename.split('.').pop();
+    const name = filename.split('.').slice(0, -1).join('.');
+    filename = name + Date.now() + '.' + extension;
+
+    setLoading(true);
     try {
-      let form = {...blogData, image: image};
-      // console.log(form);
-      
-      const res = await axios.post('https://6833dbc5464b499636007f25.mockapi.io/api/cars', blogData);
-      // // console.log(res);
-      if (res.status === 201) {
-        Alert.alert('Success', 'Blog has been submitted successfully!');
-        // navigation.goBack();
-      } else {
-        Alert.alert('Failed', 'Failed to submit blog data');
+      const imageFormData = new FormData();
+      imageFormData.append('file', {
+        uri: image,
+        type: `image/${extension}`, // or 'image/png'
+        name: filename,
+      });
+
+      const result = await fetch('https://backend-file-praktikum.vercel.app/upload/', {
+        method: 'POST',
+        body: imageFormData,
+      });
+      if (result.status !== 200) {
+        throw new Error("failed to upload image");
       }
 
-    } catch (e) {
-      console.log(`FAILED TO SUBMTI BLOG : ${e}`);
-      Alert.alert('Failed', 'Failed to submit blog data');
-    } finally {
+      const { url } = await result.json();
+
+      const db = getFirestore();
+      const blogRef = collection(db, 'Cars');
+      addDoc(blogRef, {
+        title: blogData.title,
+        category: blogData.category,
+        image: url,
+        content: blogData.content,
+        totalComments: blogData.totalComments,
+        totalLikes: blogData.totalLikes,
+        createdAt: new Date().toISOString(),
+      });
+
       setLoading(false);
+      console.log('Blog added!');
+      navigation.goBack();
+    } catch (error) {
+      setLoading(false);
+      console.log(error);
     }
   };
+
+
 
   return (
     <View
@@ -92,15 +133,58 @@ const AddBlogForm = () => {
             style={textInput.content}
           />
         </View>
-        <View style={[textInput.borderDashed]}>
-          <TextInput
-            placeholder="Image"
-            value={image}
-            onChangeText={text => setImage(text)}
-            placeholderTextColor={colors.white(0.6)}
-            style={textInput.content}
-          />
-        </View>
+        {image ? (
+          <View style={{ position: 'relative' }}>
+            <FastImage
+              style={{ width: '100%', height: 127, borderRadius: 5 }}
+              source={{
+                uri: image,
+                headers: { Authorization: 'someAuthToken' },
+                priority: FastImage.priority.high,
+              }}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: -5,
+                right: -5,
+                backgroundColor: colors.blue(),
+                borderRadius: 25,
+              }}
+              onPress={() => setImage(null)}>
+              <Add
+                size={20}
+                variant="Linear"
+                color={colors.white()}
+                style={{ transform: [{ rotate: '45deg' }] }}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={handleImagePick}>
+            <View
+              style={[
+                textInput.borderDashed,
+                {
+                  gap: 10,
+                  paddingVertical: 30,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                },
+              ]}>
+              <AddSquare color={colors.white(0.6)} variant="Linear" size={42} />
+              <Text
+                style={{
+                  fontFamily: fontType['Pjs-Regular'],
+                  fontSize: 12,
+                  color: colors.white(0.6),
+                }}>
+                Upload Thumbnail
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
         <View style={[textInput.borderDashed]}>
           <Text
             style={{
@@ -139,7 +223,7 @@ const AddBlogForm = () => {
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
+        <TouchableOpacity style={styles.button} onPress={() => handleUpload()}>
           <Text style={styles.buttonLabel}>{loading ? 'Saving...' : 'Upload Berita'}</Text>
         </TouchableOpacity>
       </View>
