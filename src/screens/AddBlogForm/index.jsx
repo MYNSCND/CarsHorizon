@@ -1,16 +1,17 @@
-import React, {useState} from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView} from 'react-native';
-import {ArrowLeft} from 'iconsax-react-native';
-import {useNavigation} from '@react-navigation/native';
-import {fontType, colors} from '../../theme';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { ArrowLeft } from 'iconsax-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { fontType, colors } from '../../theme';
+import axios from 'axios';
 
 
 const AddBlogForm = () => {
-const dataCategory = [
-    {id: 1, name: 'BMW'},
-    {id: 2, name: 'Porsche'},
-    {id: 3, name: 'McLaren'},
-    {id: 4, name: 'Mercedes'},
+  const dataCategory = [
+    { id: 1, name: 'BMW' },
+    { id: 2, name: 'Porsche' },
+    { id: 3, name: 'McLaren' },
+    { id: 4, name: 'Mercedes' },
   ];
   const [blogData, setBlogData] = useState({
     title: '',
@@ -27,6 +28,32 @@ const dataCategory = [
   };
   const [image, setImage] = useState(null);
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+
+    try {
+      let form = {...blogData, image: image};
+      // console.log(form);
+      
+      const res = await axios.post('https://6833dbc5464b499636007f25.mockapi.io/api/cars', blogData);
+      // // console.log(res);
+      if (res.status === 201) {
+        Alert.alert('Success', 'Blog has been submitted successfully!');
+        // navigation.goBack();
+      } else {
+        Alert.alert('Failed', 'Failed to submit blog data');
+      }
+
+    } catch (e) {
+      console.log(`FAILED TO SUBMTI BLOG : ${e}`);
+      Alert.alert('Failed', 'Failed to submit blog data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View
       style={styles.container}
@@ -35,7 +62,7 @@ const dataCategory = [
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <ArrowLeft color={colors.white()} variant="Linear" size={24} />
         </TouchableOpacity>
-        <View style={{flex: 1, alignItems: 'center'}}>
+        <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={styles.title}>Masukan Berita</Text>
         </View>
       </View>
@@ -55,7 +82,7 @@ const dataCategory = [
             style={textInput.title}
           />
         </View>
-        <View style={[textInput.borderDashed, {minHeight: 250}]}>
+        <View style={[textInput.borderDashed, { minHeight: 250 }]}>
           <TextInput
             placeholder="Content"
             value={blogData.content}
@@ -98,11 +125,11 @@ const dataCategory = [
                 <TouchableOpacity
                   key={index}
                   onPress={() =>
-                    handleChange('category', {id: item.id, name: item.name})
+                    handleChange('category', { id: item.id, name: item.name })
                   }
-                  style={[category.item, {backgroundColor: bgColor}]}>
+                  style={[category.item, { backgroundColor: bgColor }]}>
                   <Text
-                    style={[category.name, {color: color}]}>
+                    style={[category.name, { color: color }]}>
                     {item.name}
                   </Text>
                 </TouchableOpacity>
@@ -112,8 +139,8 @@ const dataCategory = [
         </View>
       </ScrollView>
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.button} onPress={() => {}}>
-          <Text style={styles.buttonLabel}>Upload Berita</Text>
+        <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
+          <Text style={styles.buttonLabel}>{loading ? 'Saving...' : 'Upload Berita'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -196,18 +223,18 @@ const category = StyleSheet.create({
     fontFamily: fontType['Pjs-Regular'],
     color: colors.white(0.6),
   },
-  container:{
+  container: {
     flexWrap: 'wrap',
     flexDirection: 'row',
     gap: 10,
     marginTop: 10,
   },
-  item:{
+  item: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 25,
   },
-  name:{
+  name: {
     fontSize: 10,
     fontFamily: fontType['Pjs-Medium'],
   }

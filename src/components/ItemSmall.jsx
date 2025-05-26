@@ -25,7 +25,7 @@ const ItemSmall = ({item}) => {
             gap:30
           }}>
           <View style={{gap: 5, flex:1}}>
-            <Text style={styles.cardCategory}>{item.category}</Text>
+            <Text style={styles.cardCategory}>{item.category.name}</Text>
             <Text style={styles.cardTitle}>{item.title}</Text>
           </View>
         </View>
