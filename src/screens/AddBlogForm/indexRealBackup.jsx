@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { ArrowLeft, AddSquare, Add } from 'iconsax-react-native';
@@ -15,7 +15,6 @@ const AddBlogForm = () => {
     { id: 3, name: 'McLaren' },
     { id: 4, name: 'Mercedes' },
   ];
-
   const [blogData, setBlogData] = useState({
     title: '',
     content: '',
@@ -23,41 +22,15 @@ const AddBlogForm = () => {
     totalLikes: 0,
     totalComments: 0,
   });
-
-  const [image, setImage] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    requestUserPermission();
-  }, []);
-
-  const requestUserPermission = async () => {
-    await notifee.requestPermission();
-  };
-
-  const showNotification = async () => {
-    const channelId = await notifee.createChannel({
-      id: 'default',
-      name: 'Default Channel',
-      importance: AndroidImportance.HIGH,
-    });
-
-    await notifee.displayNotification({
-      title: 'Berita berhasil diunggah',
-      body: 'Berita kamu sudah tersimpan dan dapat dilihat sekarang.',
-      android: {
-        channelId,
-        pressAction: {
-          id: 'default',
-        },
-      },
-    });
-  };
-
   const handleChange = (key, value) => {
-    setBlogData({ ...blogData, [key]: value });
+    setBlogData({
+      ...blogData,
+      [key]: value,
+    });
   };
+  const [image, setImage] = useState(null);
+  const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
 
   const handleImagePick = async () => {
     ImagePicker.openPicker({
@@ -66,6 +39,7 @@ const AddBlogForm = () => {
       cropping: true,
     })
       .then(image => {
+        console.log(image);
         setImage(image.path);
       })
       .catch(error => {
@@ -73,12 +47,8 @@ const AddBlogForm = () => {
       });
   };
 
-  const handleUpload = async () => {
-    if (!blogData.title || !blogData.content || !image || !blogData.category.id) {
-      ToastAndroid.show('Lengkapi semua data sebelum mengunggah', ToastAndroid.SHORT);
-      return;
-    }
 
+  const handleUpload = async () => {
     let filename = image.substring(image.lastIndexOf('/') + 1);
     const extension = filename.split('.').pop();
     const name = filename.split('.').slice(0, -1).join('.');
@@ -89,7 +59,7 @@ const AddBlogForm = () => {
       const imageFormData = new FormData();
       imageFormData.append('file', {
         uri: image,
-        type: `image/${extension}`,
+        type: `image/${extension}`, // or 'image/png'
         name: filename,
       });
 
@@ -97,17 +67,15 @@ const AddBlogForm = () => {
         method: 'POST',
         body: imageFormData,
       });
-
       if (result.status !== 200) {
-        throw new Error('Gagal mengunggah gambar');
+        throw new Error("failed to upload image");
       }
 
       const { url } = await result.json();
 
       const db = getFirestore();
       const blogRef = collection(db, 'Cars');
-
-      await addDoc(blogRef, {
+      addDoc(blogRef, {
         title: blogData.title,
         category: blogData.category,
         image: url,
@@ -117,18 +85,21 @@ const AddBlogForm = () => {
         createdAt: new Date().toISOString(),
       });
 
-      await showNotification();
       setLoading(false);
+      console.log('Blog added!');
       navigation.goBack();
     } catch (error) {
       setLoading(false);
       console.log(error);
-      ToastAndroid.show('Terjadi kesalahan saat mengunggah', ToastAndroid.SHORT);
     }
   };
 
+
+
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <ArrowLeft color={colors.white()} variant="Linear" size={24} />
@@ -137,14 +108,12 @@ const AddBlogForm = () => {
           <Text style={styles.title}>Masukan Berita</Text>
         </View>
       </View>
-
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingVertical: 10,
           gap: 10,
-        }}
-      >
+        }} >
         <View style={textInput.borderDashed}>
           <TextInput
             placeholder="Title"
@@ -155,7 +124,6 @@ const AddBlogForm = () => {
             style={textInput.title}
           />
         </View>
-
         <View style={[textInput.borderDashed, { minHeight: 250 }]}>
           <TextInput
             placeholder="Content"
@@ -166,12 +134,15 @@ const AddBlogForm = () => {
             style={textInput.content}
           />
         </View>
-
         {image ? (
           <View style={{ position: 'relative' }}>
             <FastImage
               style={{ width: '100%', height: 127, borderRadius: 5 }}
-              source={{ uri: image }}
+              source={{
+                uri: image,
+                headers: { Authorization: 'someAuthToken' },
+                priority: FastImage.priority.high,
+              }}
               resizeMode={FastImage.resizeMode.cover}
             />
             <TouchableOpacity
@@ -182,8 +153,7 @@ const AddBlogForm = () => {
                 backgroundColor: colors.blue(),
                 borderRadius: 25,
               }}
-              onPress={() => setImage(null)}
-            >
+              onPress={() => setImage(null)}>
               <Add
                 size={20}
                 variant="Linear"
@@ -203,54 +173,58 @@ const AddBlogForm = () => {
                   justifyContent: 'center',
                   alignItems: 'center',
                 },
-              ]}
-            >
+              ]}>
               <AddSquare color={colors.white(0.6)} variant="Linear" size={42} />
               <Text
                 style={{
                   fontFamily: fontType['Pjs-Regular'],
                   fontSize: 12,
                   color: colors.white(0.6),
-                }}
-              >
+                }}>
                 Upload Thumbnail
               </Text>
             </View>
           </TouchableOpacity>
         )}
-
         <View style={[textInput.borderDashed]}>
           <Text
             style={{
               fontSize: 12,
               fontFamily: fontType['Pjs-Regular'],
               color: colors.white(0.6),
-            }}
-          >
+            }}>
             Category
           </Text>
-          <View style={category.container}>
+          <View
+            style={category.container}>
             {dataCategory.map((item, index) => {
               const bgColor =
-                item.id === blogData.category.id ? colors.white() : colors.white(0.08);
+                item.id === blogData.category.id
+                  ? colors.white()
+                  : colors.white(0.08);
               const color =
-                item.id === blogData.category.id ? colors.black() : colors.white();
+                item.id === blogData.category.id
+                  ? colors.white()
+                  : colors.white();
               return (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => handleChange('category', { id: item.id, name: item.name })}
-                  style={[category.item, { backgroundColor: bgColor }]}
-                >
-                  <Text style={[category.name, { color: color }]}>{item.name}</Text>
+                  onPress={() =>
+                    handleChange('category', { id: item.id, name: item.name })
+                  }
+                  style={[category.item, { backgroundColor: bgColor }]}>
+                  <Text
+                    style={[category.name, { color: color }]}>
+                    {item.name}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
       </ScrollView>
-
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.button} onPress={handleUpload}>
+        <TouchableOpacity style={styles.button} onPress={() => handleUpload()}>
           <Text style={styles.buttonLabel}>{loading ? 'Saving...' : 'Upload Berita'}</Text>
         </TouchableOpacity>
       </View>

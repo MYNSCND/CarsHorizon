@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787533789457",
+    "project_id": "carshorizon-8b59a",
+    "storage_bucket": "carshorizon-8b59a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787533789457:android:7cc307917ccffce9dcb4b0",
+        "android_client_info": {
+          "package_name": "com.carshorizon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC775URdWm75aEkeSr9COshIbR2Y9ta6Tc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
